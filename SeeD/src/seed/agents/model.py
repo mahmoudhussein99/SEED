@@ -64,7 +64,7 @@ class ModelAgent(Agent):
                 synced = False
         if (not synced) and (self.config['model_sync_small']>0):
             s_s = self.info['last_sync_small']
-            n_s = len([d for d in D[s_s:] if d == "train"])
+            n_s = len([d for d in self.D[s_s:] if d == "train"])
             if n_s >= self.config['model_sync_small']:
                 print("Model Small Synchronization Triggered.")
                 T = [(k,v) for k,v,d in zip(self.K[s_s:],self.V[s_s:],self.D[s_s:]) if d=="train"]

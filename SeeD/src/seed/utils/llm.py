@@ -135,3 +135,7 @@ def parse_ideas(response, limit=3):
 def parse_values(response):
     key_value_pairs = [l.split(' = ',1) for l in response['text'].split('\n') if len(l.split(' = ',1))==2] if response['status'] else list()
     return response | {'values': {k:safe_eval(v) for k,v in key_value_pairs} if response['status'] else None}
+
+def parse_values_llama(response):
+    key_value_pairs = [['is_same',l] for l in response['text'].split('\n') if len(l)==1] if response['status'] else list()
+    return response | {'values': {k:safe_eval(v) for k,v in key_value_pairs} if response['status'] else None}
