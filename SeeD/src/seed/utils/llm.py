@@ -1,20 +1,38 @@
 from .utils import *
-
+import os
+os.environ['HF_HOME'] = get_config('llm_config')['llama_model_cache_path']
+import transformers
+import torch
 class LLM:
     def __init__(self):
-        self.model = get_config('llm_config')['model']
-        self.temperature = get_config('llm_config')['temperature']
-        self.sleep = get_config('llm_config')['sleep']
-        self.retry = get_config('llm_config')['retry']
-        openai.api_key = get_config('llm_config')['api_key']
-        assert openai.api_key!='<OPENAI_API_KEY>', "Please set your OpenAI API key during installation."
-        openai.organization = get_config('llm_config')['organization']
-        assert openai.organization!='<OPENAI_ORG>', "Please set your OpenAI organization key during installation."
-        try:
-            self.client = OpenAI(api_key=openai.api_key, organization=openai.organization)
-        except Exception as e:
-            print(ERROR(e))
-            exit(0)
+        self.use_llama3 = get_config('llm_config')['use_llama3']
+
+        if not self.use_llama3:
+            self.model = get_config('llm_config')['model']
+            self.temperature = get_config('llm_config')['temperature']
+            self.sleep = get_config('llm_config')['sleep']
+            self.retry = get_config('llm_config')['retry']
+            openai.api_key = get_config('llm_config')['api_key']
+            assert openai.api_key!='<OPENAI_API_KEY>', "Please set your OpenAI API key during installation."
+            openai.organization = get_config('llm_config')['organization']
+            assert openai.organization!='<OPENAI_ORG>', "Please set your OpenAI organization key during installation."
+            try:
+                self.client = OpenAI(api_key=openai.api_key, organization=openai.organization)
+            except Exception as e:
+                print(ERROR(e))
+                exit(0)
+        else:
+            self.llama_model_id = get_config('llm_config')['llama_model_id']
+            if self.llama_model_id is None:
+                raise Exception("Please specify which LLama model id to use!")
+            self.llama_client = transformers.pipeline(
+                    "text-generation",
+                    model=self.llama_model_id,
+                    model_kwargs={"torch_dtype": torch.bfloat16},
+                    device_map="auto",
+                    
+                )
+            
     
     def q(self, messages, functions=list(), post_processings=list()):
         identifier = repr(messages) + '|' + repr(functions)
@@ -22,31 +40,52 @@ class LLM:
         if cached is not None:
             response = cached
         else:
-            for t in range(self.retry):
+            if not self.use_llama3:
+                for t in range(self.retry):
+                    try:
+                        completion = self.client.chat.completions.create(
+                            model = self.model,
+                            messages = messages,
+                            functions = functions if functions else NOT_GIVEN,
+                            temperature = self.temperature,
+                        )
+                        response = {
+                            'status': True,
+                            'text': completion.choices[0].message.content,
+                            'tools': completion.choices[0].message.tool_calls if functions and completion.choices[0].tool_calls else list(),
+                            # 'response': completion,
+                            'msg': None,
+                        }
+                    except Exception as e:
+                        response = {
+                            'status': False,
+                            'text': None,
+                            # 'response': None,
+                            'msg': str(e),
+                        }
+                    time.sleep(self.sleep)
+                    if response['text'] is not None:
+                        break
+            else:
                 try:
-                    completion = self.client.chat.completions.create(
-                        model = self.model,
-                        messages = messages,
-                        functions = functions if functions else NOT_GIVEN,
-                        temperature = self.temperature,
+                    outputs_llama = self.llama_client(
+                        messages,
+                        # max_new_tokens=256,
                     )
                     response = {
-                        'status': True,
-                        'text': completion.choices[0].message.content,
-                        'tools': completion.choices[0].message.tool_calls if functions and completion.choices[0].tool_calls else list(),
-                        # 'response': completion,
-                        'msg': None,
-                    }
+                            'status': True,
+                            'text': outputs_llama[0]["generated_text"][-1]['content'],
+                            'tools': list(),
+                            # 'response': completion,
+                            'msg': None,
+                        }
                 except Exception as e:
-                    response = {
-                        'status': False,
-                        'text': None,
-                        # 'response': None,
-                        'msg': str(e),
-                    }
-                time.sleep(self.sleep)
-                if response['text'] is not None:
-                    break
+                        response = {
+                            'status': False,
+                            'text': None,
+                            # 'response': None,
+                            'msg': str(e),
+                        }
             if response['text'] is not None:
                 add_exact_cache(identifier, response)
         for p in post_processings:

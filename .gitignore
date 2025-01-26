@@ -9,3 +9,4 @@ clear.bash
 push.bash
 openai_api.json
 docs/*
+test-run.py

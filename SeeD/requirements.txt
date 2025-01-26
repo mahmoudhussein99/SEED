@@ -7,3 +7,10 @@ pandas
 protobuf==3.20.3
 pyheaven
 transformers==4.37.2
+datasets
+ray
+evaluate
+IPython
+faiss-cpu
+faiss-gpu
+nltk

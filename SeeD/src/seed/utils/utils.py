@@ -19,10 +19,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import transformers
-from transformers import AutoConfig, AutoTokenizer, AutoModel
-from transformers import AutoModelForTextEncoding, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, AutoModelForCausalLM
+from transformers import AutoConfig, AutoTokenizer, AutoModel, BitsAndBytesConfig
+from transformers import AutoModelForTextEncoding, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, AutoModelForCausalLM, LlamaForSequenceClassification
 from transformers import TrainingArguments, Trainer, Seq2SeqTrainingArguments, Seq2SeqTrainer
-from transformers import EarlyStoppingCallback
+from transformers import EarlyStoppingCallback ,LlamaConfig
 
 import datasets
 from datasets import Dataset
@@ -67,7 +67,7 @@ RESOURCES_PATH = pjoin("resources")
 def find_resource(name):
     return pkg_resources.resource_filename('seed', pjoin(RESOURCES_PATH, name))
 
-CONFIG_PATH = pjoin(expanduser("~"), ".seed2", "config.json")
+CONFIG_PATH = pjoin(expanduser("/scratch/mhussein/"), ".seed2", "config.json")
 def init_config(**kwargs):
     CreateFile(CONFIG_PATH); SaveJson(merge_dicts([LoadJson(find_resource('configs/default.json')), kwargs]), CONFIG_PATH, indent=4)
 def get_config(key=None):
@@ -75,7 +75,7 @@ def get_config(key=None):
 def set_config(key, value):
     config = get_config(); config[key] = value; SaveJson(config, CONFIG_PATH, indent=4)
 
-CACHE_PATH = pjoin(expanduser("~"), ".seed2", "cache.json")
+CACHE_PATH = pjoin(expanduser("/scratch/mhussein/"), ".seed2", "cache.json")
 def get_exact_cache(key):
     key = key.lower().strip(); cache = LoadJson(CACHE_PATH); return cache[key] if (key in cache) else None
 def add_exact_cache(key, value):
@@ -100,19 +100,50 @@ def comment(s):
     return '# ' + s.strip().replace('\n', '\n# ')
     # return textwrap.indent(s, '# ')
 
-CKPTS_PATH = pjoin(expanduser("~"), ".seed2", "ckpts")
-TEMP_TRAINING_PATH = pjoin(expanduser("~"), ".seed2", "temp")
+CKPTS_PATH = pjoin(expanduser("/scratch/mhussein/"), ".seed2", "ckpts")
+cache_dir = pjoin(expanduser("/scratch/mhussein/"), ".cache")
+TEMP_TRAINING_PATH = pjoin(expanduser("/scratch/mhussein/"), ".seed2", "temp")
 def init_ckpts():
     CreateFolder(CKPTS_PATH)
 def add_ckpt(ckpt):
     C = AutoConfig.from_pretrained(ckpt); C.save_pretrained(pjoin(CKPTS_PATH, ckpt))
     T = AutoTokenizer.from_pretrained(ckpt); T.save_pretrained(pjoin(CKPTS_PATH, ckpt))
     M = AutoModel.from_pretrained(ckpt); M.save_pretrained(pjoin(CKPTS_PATH, ckpt))
+    # C = AutoConfig.from_pretrained(ckpt, cache_dir=cache_dir); C.save_pretrained(pjoin(CKPTS_PATH, ckpt))
+    # T = AutoTokenizer.from_pretrained(ckpt, cache_dir=cache_dir); T.save_pretrained(pjoin(CKPTS_PATH, ckpt))
+    # quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16,bnb_4bit_quant_type='nf4')
+    # M = AutoModelForSequenceClassification.from_pretrained(ckpt, cache_dir=cache_dir, quantization_config=quantization_config); M.save_pretrained(pjoin(CKPTS_PATH, ckpt))
+    # if T.pad_token is None:
+    #     # T.add_special_tokens({'pad_token': '[PAD]'})
+    #     T.pad_token_id = T.eos_token_id
+    #     T.pad_token = T.eos_token
+    #     M.config.pad_token_id = T.pad_token_id
+    #     M.config.pad_token = T.pad_token
+    #     M.config.use_cache  = False
+    #     M.config.pretraining_tp  = 1
+    #     # M.resize_token_embeddings(len(T))
+    #     # M.resize_token_embeddings(len(T))
 def load_ckpt(ckpt, model_type=AutoModel, **kwargs):
+# def load_ckpt(ckpt, model_type=AutoModelForSequenceClassification, **kwargs):
     C = AutoConfig.from_pretrained(ckpt, local_files_only=True)
     T = AutoTokenizer.from_pretrained(ckpt, local_files_only=True)
     M = model_type.from_pretrained(ckpt, local_files_only=True, **kwargs)
     return C, T, M
+    # C = AutoConfig.from_pretrained(ckpt, local_files_only=True)
+    # T = AutoTokenizer.from_pretrained(ckpt, local_files_only=True)
+    # quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16,bnb_4bit_quant_type='nf4')
+    # M = model_type.from_pretrained(ckpt, local_files_only=True, quantization_config=quantization_config,num_labels=2)
+    # # , **kwargs)
+    # if T.pad_token is None:
+    #     # T.add_special_tokens({'pad_token': '[PAD]'})
+    #     T.pad_token_id = T.eos_token_id
+    #     T.pad_token = T.eos_token
+    #     M.config.pad_token_id = T.pad_token_id
+    #     M.config.pad_token = T.pad_token
+    #     M.config.use_cache  = False
+    #     M.config.pretraining_tp  = 1
+    #     # M.resize_token_embeddings(len(T))
+    # return C, T, M
 def load_model(ckpt, model_type=AutoModel, **kwargs):
     if ExistFolder(ckpt):
         return load_ckpt(ckpt, model_type=model_type, **kwargs)
