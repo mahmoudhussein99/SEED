@@ -12,6 +12,6 @@ from seed import *
     prompt = format_llmqa_single_prompt(examples=examples, instance=instance, **config)
     response = LLM().q(messages = [
         {'role': 'user', 'content': prompt},
-    ], post_processings = [parse_values])
+    ], post_processings = [parse_values_llama])
     outputs = [(response['values'][o] if o in response['values'] else None) for o in <<[o['name'] for o in api.config['outputs']]>>]
     return tuple(outputs) if len(outputs) > 1 else outputs[0]

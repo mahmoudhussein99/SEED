@@ -1,7 +1,7 @@
 from .utils import *
 
 import nltk
-
+import uuid
 class ObjectAccuracy():
     def __init__(self):
         super().__init__()
@@ -30,11 +30,13 @@ class FuzzyStringAccuracy():
                 correct += 1; continue
         return {"fuzzy_str_accuracy": correct/len(references)}
 
-def get_evaluation_metric(evaluation_metric):
+def get_evaluation_metric(evaluation_metric,experiment_id=None):
+    if experiment_id is None:
+        experiment_id = str(uuid.uuid4())
     if evaluation_metric == "accuracy":
-        return evaluate.load("accuracy")
+        return evaluate.load("accuracy",experiment_id=experiment_id)
     if evaluation_metric == "f1":
-        return evaluate.load("f1")
+        return evaluate.load("f1",experiment_id=experiment_id)
     if evaluation_metric == "obj_accuracy":
         return ObjectAccuracy
     if evaluation_metric == "fuzzy_str_accuracy":

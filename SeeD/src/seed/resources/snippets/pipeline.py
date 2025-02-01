@@ -37,7 +37,17 @@ def get_<<api.name>>_api(agent):
             except Exception as e:
                 print(e)
     if (final_source is None):
-        final_response = config['outputs'][0]['default']; final_source = 'default'
+        if force_fallback:
+            module = 'llmqa'
+            try:
+                response = get_<<api.name>>_api(module)(<<api.asgs>>)
+                print(f"{module} response:", response)
+                if response is not None:
+                    final_response = response; final_source = module
+            except Exception as e:
+                print(e)
+        if (final_source is None): # still None
+            final_response = config['outputs'][0]['default']; final_source = 'default'
     if final_source in ['groundtruth', 'llmqa']:
         if config['activate_cache']:
             from agents.cache import get_cache_agent

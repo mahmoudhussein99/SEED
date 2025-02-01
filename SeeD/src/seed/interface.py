@@ -95,10 +95,10 @@ def GetExamples(path, agent="", instance=None):
     '''
     config = LoadJson(pjoin(path, 'config.json'))
     prefix = f'{agent}_examples' if agent else 'examples'
-    if (f'{prefix}_manual' in config) and (config[f'{prefix}_manual']):
-        data = config[f'{prefix}_manual']
-    elif (f'{prefix}_path' in config) and (config[f'{prefix}_path']):
+    if (f'{prefix}_path' in config) and (config[f'{prefix}_path']):
         data = LoadJson(config[f'{prefix}_path'], backend='jsonl')
+    elif (f'{prefix}_manual' in config) and (config[f'{prefix}_manual']):
+        data = config[f'{prefix}_manual']
     else:
         data = []
     
@@ -131,10 +131,12 @@ def GetExamples(path, agent="", instance=None):
         'outputs': {k:v for k,v in e.items() if k in outputs_keys},
     } for e in examples]
 
-def add_config(path, config, profile):
-    c = 0
-    while ExistFile(pjoin(path, f'configs/{c}.json')):
+def add_config(path, config, profile, counter=0):
+    c = counter
+    while ExistFile(pjoin(path, f'configs/{c}_config.json')):
         c += 1
+    # print(f"writing now config number :: {c}")
+    print(f"writing now config number :: {c}")
     SaveJson(config, pjoin(path, f'configs/{c}_config.json'), indent=4)
     SaveJson(profile, pjoin(path, f'configs/{c}_profile.json'), indent=4)
 
@@ -147,18 +149,38 @@ def evaluate_config(path, config):
     )
     SaveJson(config, pjoin(path, 'config.json'), indent=4)
     CompileProject(path)
-    CMD("python -c 'from evaluation import *\nevaluate_entity_resolution()'", wait=True)
+    original_path = os.getcwd()
+    CMD(f"cd {config["project_path"]} && python -c 'from evaluation import *\nevaluate_entity_resolution()'", wait=True)
+    CMD(f"cd {original_path}")
     return LoadJson(pjoin(path, 'profile.json'))
 
-def list_config_profiles(path):
-    c = 0
-    while ExistFile(pjoin(path, f'configs/{c}.json')):
-        yield LoadJson(pjoin(path, f'configs/{c}_config.json')), LoadJson(pjoin(path, f'configs/{c}_profile.json'))
-        c += 1
+def list_config_profiles(path,counter):
+    list_configs=[]
+    for i in range(counter):
+        if not ExistFile(pjoin(path, f'configs/{i}_config.json')):
+            raise Exception(f"Error: {pjoin(path, f'configs/{i}_config.json')} doesn't exist")
+        list_configs.append((LoadJson(pjoin(path, f'configs/{i}_config.json')), LoadJson(pjoin(path, f'configs/{i}_profile.json'))))
+    return list_configs
+    # c = 0
+    # while ExistFile(pjoin(path, f'configs/{c}.json')):
+    #     yield LoadJson(pjoin(path, f'configs/{c}_config.json')), LoadJson(pjoin(path, f'configs/{c}_profile.json'))
+    #     c += 1
 
-def get_best_config(path, evaluation_metric):
-    config_profiles = list_config_profiles(path)
-    config, profile = max(config_profiles, key=lambda x:x[evaluation_metric])
+def get_best_config(path, evaluation_metric,counter=3):
+    # config_profiles = list_config_profiles(path)
+    # print(config_profiles)
+    # config, profile = max(config_profiles, key=lambda y,x:x[evaluation_metric])
+    config =None
+    profile =None
+    for c,p in list_config_profiles(path,counter):
+        if config is None or profile is None:
+            config=c
+            profile=p
+        if p[evaluation_metric]> profile[evaluation_metric]:
+            config=c
+            profile=p
+    # assert( config is not None)
+    # assert( profile is not None)
     return config, profile
 
 def HyperparameterTuning(path):
@@ -167,7 +189,7 @@ def HyperparameterTuning(path):
     Args:
         path: str. Path of the project.
     '''
-    space = LoadJson(pjoin(path, 'hyperparameters.json'))
+    space = LoadJson(pjoin(path, 'hyperparameters.json'))['search_space']
     base_config = LoadJson(pjoin(path, 'config.json'))
     evaluation_metric = base_config['evaluation_metric']
     CreateFolder(pjoin(path, 'configs'))
@@ -175,14 +197,17 @@ def HyperparameterTuning(path):
         base_config[f'activate_{agent}'] = False
 
     # 1. Get the best performance, assuming it is the `llm` one
+    counter =0
     for examples_mode in space['examples_mode']:
         vari_config = base_config | {
             'activate_llmqa': True,
             'examples_mode': examples_mode
         }
         profile = evaluate_config(path, vari_config)
-        add_config(path, vari_config, profile)
-    best_llm_config, best_llm_profile = get_best_config(path, evaluation_metric)
+        add_config(path, vari_config, profile,counter=counter)
+        print(f"Evaluated now config number## {counter}")
+        counter+=1
+    best_llm_config, best_llm_profile = get_best_config(path, evaluation_metric, counter=counter)
     best_performance = best_llm_profile[evaluation_metric]
     
     # 2. Search for the code component
@@ -192,7 +217,10 @@ def HyperparameterTuning(path):
             'examples_mode': examples_mode
         }
         profile = evaluate_config(path, vari_config)
-        add_config(path, vari_config, profile)
+
+        add_config(path, vari_config, profile,counter=counter)
+        print(f"Evaluated now config number## {counter}")
+        counter+=1        
         if profile[evaluation_metric] < best_performance - space['performance_gap']:
             performance_threshold = best_performance - space['performance_gap']
             best_configs = [best_llm_config]
@@ -212,7 +240,9 @@ def HyperparameterTuning(path):
                     'model_confidence_ratio': c
                 }
                 profile = evaluate_config(path, vari_config)
-                add_config(path, vari_config, profile)
+                add_config(path, vari_config, profile,counter=counter)
+                print(f"Evaluated now config number## {counter}")
+                counter+=1
                 if profile[evaluation_metric] < performance_threshold:
                     break
                 else:
@@ -227,6 +257,8 @@ def HyperparameterTuning(path):
                     'cache_confidence_ratio': c
                 }
                 profile = evaluate_config(path, vari_config)
-                add_config(path, vari_config, profile)
+                add_config(path, vari_config, profile,counter=counter)
+                print(f"Evaluated now config number## {counter}")
+                counter+=1
                 if profile[evaluation_metric] < performance_threshold:
                     break
