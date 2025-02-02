@@ -14,6 +14,7 @@ def CreateProject(name, workspace="./projects/"):
     config = LoadJson(find_resource('configs/default_project.json')); config['project_name'] = name
     SaveJson(config, pjoin(workspace, name, 'config.json'), indent=4)
     SaveJson(LoadJson(find_resource('configs/hyperparameters.json')), pjoin(workspace, name, 'hyperparameters.json'), indent=4)
+    SaveJson(LoadJson(find_resource('configs/hyperparameters_efficient.json')), pjoin(workspace, name, 'hyperparameters_efficient.json'), indent=4)
 
 def CompleteConfig(path):
     '''
@@ -150,7 +151,7 @@ def evaluate_config(path, config):
     SaveJson(config, pjoin(path, 'config.json'), indent=4)
     CompileProject(path)
     original_path = os.getcwd()
-    CMD(f"cd {config["project_path"]} && python -c 'from evaluation import *\nevaluate_entity_resolution()'", wait=True)
+    CMD(f"cd {config['project_path']} && python -c 'from evaluation import *\nevaluate_entity_resolution()'", wait=True)
     CMD(f"cd {original_path}")
     return LoadJson(pjoin(path, 'profile.json'))
 
@@ -183,13 +184,16 @@ def get_best_config(path, evaluation_metric,counter=3):
     # assert( profile is not None)
     return config, profile
 
-def HyperparameterTuning(path):
+def HyperparameterTuning(path,efficient=False):
     '''
     Enumerate a project parameter setting and generate their corresponding profiles. The user can then manually choose the config with the best performance.
     Args:
         path: str. Path of the project.
     '''
-    space = LoadJson(pjoin(path, 'hyperparameters.json'))['search_space']
+    if efficient:
+        space = LoadJson(pjoin(path, 'hyperparameters_efficient.json'))['search_space']
+    else:
+        space = LoadJson(pjoin(path, 'hyperparameters.json'))['search_space']
     base_config = LoadJson(pjoin(path, 'config.json'))
     evaluation_metric = base_config['evaluation_metric']
     CreateFolder(pjoin(path, 'configs'))

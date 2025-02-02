@@ -1,0 +1,12 @@
+{
+    "search_mode": "greedy",
+    "search_space": {
+        "performance_gap": 0.10,
+        "activate_model": [true],
+        "model_confidence_ratio": [0.5],
+        "activate_cache": [false],
+        "cache_confidence_ratio": [0.5, 0.7, 0.9],
+        "activate_codeg": [false, true],
+        "examples_mode": ["sample"]
+    }
+}
