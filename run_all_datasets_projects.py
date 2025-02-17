@@ -119,7 +119,8 @@ def configurate(root_folder, dataset,efficient=False):
 
 
 def main():
-    datasets=["DBLP_Scholar",
+    datasets=[
+        # "DBLP_Scholar",
             "WDC_shoes",
             "WDC_computers",
             "WDC_watches",
@@ -130,8 +131,11 @@ def main():
         CreateProject(name=dataset, workspace="./projects/")
         root_folder =f"projects/{dataset}"
         configurate(root_folder,dataset,efficient=efficient)
-        CompileProject(root_folder)
-        HyperparameterTuning(root_folder,efficient=efficient)
+        CompileProject(root_folder, best=True)
+        vari_config = LoadJson(pjoin(root_folder, 'config.json'))
+        profile = evaluate_config(root_folder, vari_config)
+        add_config(root_folder, vari_config, profile,counter=0)
+        # HyperparameterTuning(root_folder,efficient=efficient)
 
 if __name__ =="__main__":
     main()

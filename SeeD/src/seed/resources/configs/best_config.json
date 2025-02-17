@@ -1,0 +1,61 @@
+{
+    "name": "entity_resolution",
+    "task_desc": "Given two bibliographic records, determine whether they are identical records.",
+    "inputs": [
+        {
+            "name": "entity1",
+            "type": "dict",
+            "desc": "It contains two attributes: `title`, `authors`. Both attributes are strings"
+        },
+        {
+            "name": "entity2",
+            "type": "dict",
+            "desc": "Same as entity1."
+        }
+    ],
+    "outputs": [
+        {
+            "name": "is_same",
+            "type": "bool",
+            "desc": "0 if the two records are not identical, 1 if the two records are identical.",
+            "default": 0
+        }
+    ],
+    "evaluation_metric": "f1",
+    "tools": [],
+    "examples_manual": [],
+    "examples_mode": "sample",
+    "examples_count": 10,
+    "p_fallback": 0.05,
+    "activate_cache": false,
+    "cache_frozen_ckpt": "t5-small",
+    "cache_confidence_ratio": 0.8,
+    "cache_max_size": 512,
+    "cache_sync": 64,
+    "cache_sync_off": false,
+    "activate_model": true,
+    "model_type": "AutoModelForSequenceClassification",
+    "model_initial_ckpt": "t5-small",
+    "model_confidence_ratio": 0.5,
+    "model_confidence_default": 1.0,
+    "model_max_size": 512,
+    "model_sync_small": 64,
+    "model_sync_large": 1024,
+    "model_sync_off": false,
+    "model_sync_confi": 256,
+    "model_args": {},
+    "activate_codeg": false,
+    "codeg_examples_manual": [],
+    "codeg_examples_mode": "balanced",
+    "codeg_examples_count": 4,
+    "codev_examples_manual": [],
+    "codev_examples_mode": "sample",
+    "codev_examples_count": 20,
+    "codeg_iterations": 5,
+    "codeg_branches_count": 4,
+    "codeg_branching": 3,
+    "activate_tools": false,
+    "activate_llmqa": true,
+    "debug": -1,
+    "project_path": "/scratch/mhussein/SEED/projects/DBLP_Scholar"
+}

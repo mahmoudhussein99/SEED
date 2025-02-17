@@ -16,7 +16,7 @@ def CreateProject(name, workspace="./projects/"):
     SaveJson(LoadJson(find_resource('configs/hyperparameters.json')), pjoin(workspace, name, 'hyperparameters.json'), indent=4)
     SaveJson(LoadJson(find_resource('configs/hyperparameters_efficient.json')), pjoin(workspace, name, 'hyperparameters_efficient.json'), indent=4)
 
-def CompleteConfig(path):
+def CompleteConfig(path, best=False):
     '''
     Automatically complete and examine the config file of the project.
     This is only for convenience and does NOT serve as a substitute for manually completing the config file.
@@ -25,7 +25,7 @@ def CompleteConfig(path):
         path: str. Path of the project.
     '''
     config = LoadJson(pjoin(path, 'config.json'))
-    config = merge_dicts([LoadJson(find_resource('configs/complete_project.json')), config])
+    config = merge_dicts([LoadJson(find_resource('configs/complete_project.json')) if not best else LoadJson(find_resource('configs/best_config.json')), config])
     config['project_path'] = os.path.abspath(path)
     assert (config['name']), "`name` must be specified in `config.json`!"
     assert (config['task_desc']), "`task_desc` must be specified in `config.json`!"
@@ -44,13 +44,13 @@ def CompleteConfig(path):
             config['model_args']['num_labels'] = len(config['outputs'][0]['verbalizer'])
     SaveJson(config, pjoin(path, 'config.json'), indent=4)
 
-def CompileProject(path):
+def CompileProject(path , best=False):
     '''
     Compile a project and generating a runnable API from the config file.
     Args:
         path: str. Path of the project.
     '''
-    CompleteConfig(path)
+    CompleteConfig(path,best=best)
     config = LoadJson(pjoin(path, 'config.json'))
     
     if True: # For debugging only
@@ -134,6 +134,8 @@ def GetExamples(path, agent="", instance=None):
 
 def add_config(path, config, profile, counter=0):
     c = counter
+    if not(os.path.exists(pjoin(path, f'configs'))) or not(os.path.isdir(pjoin(path, f'configs'))):
+        os.mkdir(pjoin(path, f'configs'))
     while ExistFile(pjoin(path, f'configs/{c}_config.json')):
         c += 1
     # print(f"writing now config number :: {c}")
